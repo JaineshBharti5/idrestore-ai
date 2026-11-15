@@ -1,0 +1,10 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+opencv-python>=4.9,<5
+numpy>=1.26
+Pillow>=10.2
+pytesseract>=0.3.10
+groq>=0.11.0
+python-dotenv>=1.0.1
+pyngrok>=7.0

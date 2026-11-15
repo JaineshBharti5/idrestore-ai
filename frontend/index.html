@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>IDRestore AI | Restore employee IDs and HR documents</title>
+    <meta name="description" content="Upscale blurry employee ID photos and scanned HR documents with Real-ESRGAN, GFPGAN and OpenCV, then check that nothing important changed." />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✨</text></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <header class="nav">
+      <div class="container nav-row">
+        <a class="brand" href="#top" aria-label="IDRestore AI home">
+          <span class="brand-tile"><i data-ph="columns" data-size="18"></i></span>
+          <span class="brand-name">IDRestore AI</span>
+        </a>
+        <nav class="nav-links" aria-label="Primary">
+          <a href="#studio">Studio</a>
+          <a href="#how">How it works</a>
+          <a href="#gallery">Gallery</a>
+          <a href="#pipeline">Pipeline</a>
+          <a href="#features">Features</a>
+        </nav>
+        <div class="nav-actions">
+          <a class="nav-text" id="api-docs" href="/docs">API docs</a>
+          <a class="btn btn-terra btn-sm" href="#studio">Open studio</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero grain">
+        <span class="orb orb-terra" aria-hidden="true"></span>
+        <span class="orb orb-sand" aria-hidden="true"></span>
+        <div class="container hero-grid">
+          <div class="hero-copy">
+            <span class="badge"><i data-ph="sparkle" data-size="14"></i>HR document restoration</span>
+            <h1 class="display">Restore what <span class="hl">faded.</span></h1>
+            <p class="lead hero-lead">IDRestore AI sharpens blurry employee ID photos and scanned HR documents, then checks that faces, text and layout stayed true to the original. Drag the handle to compare.</p>
+            <div class="btn-row">
+              <a class="btn btn-ink" href="#studio">Open studio <span class="nudge"><i data-ph="arrows-left-right" data-size="18"></i></span></a>
+              <a class="btn btn-outline" href="#pipeline">See the pipeline</a>
+            </div>
+            <dl class="stats">
+              <div><dt>4x</dt><dd>Real-ESRGAN upscale</dd></div>
+              <div><dt>5</dt><dd>preservation checks</dd></div>
+              <div><dt>20</dt><dd>files per batch</dd></div>
+            </dl>
+          </div>
+          <div class="hero-frame-wrap">
+            <div id="hero-compare" class="hero-frame"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="marquee" aria-label="What it handles">
+        <div class="container marquee-row">
+          <span><i data-ph="image-square" data-size="18"></i>ID photos</span><em>/</em>
+          <span><i data-ph="scan" data-size="18"></i>HR scans</span><em>/</em>
+          <span><i data-ph="arrows-out" data-size="18"></i>Upscaling</span><em>/</em>
+          <span><i data-ph="user-focus" data-size="18"></i>Face restore</span><em>/</em>
+          <span><i data-ph="paint-roller" data-size="18"></i>Clean-up</span>
+        </div>
+      </section>
+
+      <section id="studio" class="studio-band">
+        <div class="container section">
+          <div class="sec-head">
+            <p class="eyebrow">Studio</p>
+            <h2 class="h2">Drop a file. Get it back sharper.</h2>
+            <p class="sec-lead">Restore one image, or a whole folder of up to 20. Every result comes with scores and a report you can download.</p>
+          </div>
+          <div id="engine" class="engine" aria-live="polite"></div>
+          <div class="studio-grid">
+            <aside class="panel" aria-label="Restore settings">
+              <div class="seg" role="tablist" aria-label="Input type">
+                <button type="button" class="on" data-input="single" role="tab" aria-selected="true">Single file</button>
+                <button type="button" data-input="batch" role="tab" aria-selected="false">Batch</button>
+              </div>
+
+              <label class="drop" id="drop" tabindex="0">
+                <input id="file" type="file" accept="image/png,image/jpeg,image/webp,image/bmp,image/tiff" hidden />
+                <span class="drop-icon"><i data-ph="upload-simple" data-size="26"></i></span>
+                <strong id="drop-title">Drop an ID photo or scan</strong>
+                <span class="drop-sub">JPG, PNG, WEBP, BMP or TIFF, up to 15 MB</span>
+              </label>
+              <ul id="file-list" class="files"></ul>
+
+              <div class="field">
+                <span class="label">Document type</span>
+                <div class="seg seg-sm" data-opt="mode">
+                  <button type="button" class="on" data-value="auto">Auto</button>
+                  <button type="button" data-value="id_photo">ID photo</button>
+                  <button type="button" data-value="document">Document</button>
+                </div>
+              </div>
+              <div class="field">
+                <span class="label">Upscale</span>
+                <div class="seg seg-sm" data-opt="scale">
+                  <button type="button" class="on" data-value="0">Auto</button>
+                  <button type="button" data-value="1">1x</button>
+                  <button type="button" data-value="2">2x</button>
+                  <button type="button" data-value="4">4x</button>
+                </div>
+              </div>
+              <label class="check">
+                <input id="opt-denoise" type="checkbox" checked />
+                <span>Denoise before upscaling</span>
+              </label>
+              <div class="field">
+                <label class="label" for="opt-sharpen">Sharpen <output id="out-sharpen">50%</output></label>
+                <input id="opt-sharpen" type="range" min="0" max="100" value="50" />
+              </div>
+              <div class="field">
+                <label class="label" for="opt-contrast">Contrast <output id="out-contrast">50%</output></label>
+                <input id="opt-contrast" type="range" min="0" max="100" value="50" />
+              </div>
+              <div class="field">
+                <label class="label" for="opt-fidelity">Face identity blend <output id="out-fidelity">70%</output></label>
+                <input id="opt-fidelity" type="range" min="0" max="100" value="70" />
+                <p class="hint">Lower keeps more of the original face. Higher trusts the model more.</p>
+              </div>
+
+              <button id="run" class="btn btn-terra btn-block" type="button" disabled>Restore image</button>
+              <p id="error" class="error" role="alert" hidden></p>
+            </aside>
+
+            <div id="result" class="result" aria-live="polite">
+              <div class="empty">
+                <span class="empty-icon"><i data-ph="columns" data-size="28"></i></span>
+                <h3>Your result appears here</h3>
+                <p>Add a file and press Restore. You will get a before and after slider, quality scores and a preservation report.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="how" class="container section">
+        <div class="sec-head">
+          <p class="eyebrow">How it works</p>
+          <h2 class="h2">Two images. One handle. Zero fuss.</h2>
+          <p class="sec-lead">Upload a degraded file and the pipeline does the rest. You always keep the original next to the result.</p>
+        </div>
+        <div class="steps">
+          <article class="card step">
+            <span class="step-icon"><i data-ph="stack" data-size="22"></i></span>
+            <h3>01 · Upload</h3>
+            <p>Add one file or a batch. The tool fixes orientation, then measures blur, noise, contrast and faces to decide what each file needs.</p>
+          </article>
+          <article class="card step">
+            <span class="step-icon"><i data-ph="scissors" data-size="22"></i></span>
+            <h3>02 · Restore</h3>
+            <p>Denoise, upscale, restore faces, then tune levels and sharpness. Documents also get shadows and paper tint removed.</p>
+          </article>
+          <article class="card step">
+            <span class="step-icon"><i data-ph="hand-pointing" data-size="22"></i></span>
+            <h3>03 · Verify</h3>
+            <p>Drag the handle to compare. Scores show how much sharper the file is and whether photos, text and layout still match.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="gallery" class="gallery-band">
+        <div class="container section">
+          <div class="gallery-head">
+            <div>
+              <p class="eyebrow">Gallery</p>
+              <h2 class="h2">Drag any of them.</h2>
+            </div>
+            <p class="note">Illustrations of the damage the pipeline repairs. Your own results appear in the studio.</p>
+          </div>
+          <div class="gallery-grid">
+            <figure class="fig">
+              <div id="gal-id" class="fig-frame"></div>
+              <figcaption><div><strong>Faded ID card</strong><span>Blur, haze and noise removed, photo kept</span></div><i data-ph="arrows-out" data-size="20"></i></figcaption>
+            </figure>
+            <figure class="fig">
+              <div id="gal-doc" class="fig-frame"></div>
+              <figcaption><div><strong>Shadowed scan</strong><span>Paper tint flattened, text made readable</span></div><i data-ph="arrows-out" data-size="20"></i></figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section id="pipeline" class="container section prompt-grid">
+        <div>
+          <p class="eyebrow">The pipeline</p>
+          <h2 class="h2">Send a file. Get a verdict.</h2>
+          <p class="sec-lead">The same stages run in the studio, the API and the batch command, so results match everywhere.</p>
+          <ul class="checklist">
+            <li><i data-ph="check-circle" data-size="22"></i><span><b>Faces stay the same person.</b> Model output is blended with the original face.</span></li>
+            <li><i data-ph="check-circle" data-size="22"></i><span><b>Documents keep their layout.</b> Edge maps and OCR text are compared before and after.</span></li>
+            <li><i data-ph="check-circle" data-size="22"></i><span><b>Every file gets a report.</b> Download HTML for one file, ZIP and CSV for a batch.</span></li>
+          </ul>
+        </div>
+        <div class="code">
+          <div class="code-bar">
+            <span><i data-ph="terminal" data-size="16"></i>pipeline.txt</span>
+            <button id="copy-code" class="copy" type="button"><i data-ph="copy" data-size="16"></i><span>Copy</span></button>
+          </div>
+          <pre id="code-body"></pre>
+        </div>
+      </section>
+
+      <section id="features" class="features-band">
+        <div class="container section features-grid">
+          <h2 class="h2 features-title">Built so the record stays true.</h2>
+          <div class="features">
+            <div><span class="feat-icon"><i data-ph="arrows-out" data-size="24"></i></span><h3>Real-ESRGAN upscaling</h3><p>Small, soft photos and scans grow up to 4x with real detail instead of smeared pixels.</p></div>
+            <div><span class="feat-icon"><i data-ph="user-focus" data-size="24"></i></span><h3>GFPGAN faces</h3><p>Damaged faces are rebuilt, then blended with the original so the person is still recognisable.</p></div>
+            <div><span class="feat-icon"><i data-ph="sliders-horizontal" data-size="24"></i></span><h3>OpenCV clean-up</h3><p>Denoise, levels, contrast and sharpening, with sliders when you want to steer the result.</p></div>
+            <div><span class="feat-icon"><i data-ph="shield-check" data-size="24"></i></span><h3>Preservation report</h3><p>Structure, layout, colour, face and text checks give every file a Faithful, Review or Altered verdict.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="cta">
+        <div class="container cta-col">
+          <h2>Stop squinting at old scans. Restore them.</h2>
+          <p>Migrate legacy employee records to your HRMS with images people can actually read.</p>
+          <div class="btn-row btn-row-center">
+            <a class="btn btn-sand" href="#studio">Open studio <i data-ph="arrow-up-right" data-size="18"></i></a>
+            <a class="btn btn-ghost" href="#gallery">Browse the gallery</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-row">
+        <a class="brand" href="#top" aria-label="IDRestore AI home">
+          <span class="brand-tile"><i data-ph="columns" data-size="18"></i></span>
+          <span class="brand-name">IDRestore AI</span>
+        </a>
+        <p>Employee ID photo and HR document restoration for HRMS migration</p>
+        <div class="socials">
+          <a href="https://github.com" aria-label="GitHub"><i data-ph="github-logo" data-size="20"></i></a>
+          <a href="https://x.com" aria-label="X"><i data-ph="x-logo" data-size="20"></i></a>
+          <a href="/docs" id="footer-docs" aria-label="API docs"><i data-ph="book-open" data-size="20"></i></a>
+        </div>
+      </div>
+    </footer>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
