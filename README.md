@@ -307,10 +307,6 @@ That is expected. The app flags it with a "Re-scan needed" warning, because the 
 - [x] Source readability gate (`ok` / `review` / `recapture`)
 - [x] AI advisor that cannot override the readability gate
 - [x] Batch mode with ZIP and CSV
-- [ ] Verify OCR-read fields (employee ID, registration number) against HRMS records and flag mismatches
-- [ ] Generative restoration for heavy damage, labelled as AI-reconstructed and never stored as the record without verification
-- [ ] Calibrated quality score instead of heuristics
-- [ ] Hosted deployment
 
 ## 🤝 Contributors
 
