@@ -1,97 +1,157 @@
-# IDRestore AI
+<div align="center">
 
-Restore faded, noisy and low-resolution employee ID photos and scanned HR documents before they go into an HRMS, and know when an image is too damaged to trust.
+# 🪪 IDRestore AI
+
+**Restore faded, noisy and low-resolution employee ID photos and HR scans, and know when an image is too damaged to trust.**
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-frontend-646CFF?logo=vite&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-CUDA%20optional-EE4C2C?logo=pytorch&logoColor=white)
+![Status](https://img.shields.io/badge/status-in%20development-orange)
 
-## Why this exists
+[✨ Features](#-features) · [🔬 How it works](#-how-it-works) · [🚀 Quick start](#-quick-start) · [🔌 API](#-api) · [❓ FAQ](#-faq--troubleshooting) · [🗺️ Roadmap](#️-roadmap)
 
-Legacy HR records are full of old ID card photos and scans. Before digitising them into an HRMS, someone has to clean them up, and then someone has to decide whether the result can be trusted as the record. IDRestore AI does both:
+</div>
 
-1. It restores the image with a classical + deep-learning pipeline.
-2. It measures how much the output still matches the original.
-3. It checks whether the **source** was sharp enough to restore at all, and says so plainly when it was not.
+---
 
-## Features
+## 💡 Why this exists
 
-- **Upscaling** with Real-ESRGAN x4, with an OpenCV Lanczos + unsharp fallback when the model is not installed.
-- **Face restoration** with GFPGAN v1.4, blended with the original face through an adjustable identity slider.
-- **Enhancement**: denoise, levels, CLAHE contrast and unsharp masking, each adjustable.
-- **Preservation checks**: structure, layout, colour, face and text (OCR with Tesseract) compared against the original.
-- **Source readability gate**: measures the sharpness of the original and returns `ok`, `review` or `recapture`. A too-blurry source gets a clear "re-scan needed" warning instead of a high score.
-- **AI advisor** (Groq): reads the measurements and explains the result to HR in plain language. It never sees the image, and its verdict can never override the readability gate.
-- **Batch mode**: up to 20 images, with a restored ZIP and a summary CSV.
-- **Reports**: per-image JSON and a downloadable HTML report.
-- **Public sharing**: optional ngrok tunnel for demos.
+Legacy HR records are full of old ID card photos and scans. Before they go into an HRMS, someone has to clean them up, and then decide whether the result can be trusted as the record. IDRestore AI does both:
 
-## How it works
+1. **Restores** the image with a classical + deep-learning pipeline.
+2. **Measures** how closely the output still matches the original.
+3. **Checks the source**: if the original was too blurry to recover, it says so plainly instead of handing out a high score.
 
-| Step | What happens |
-|---|---|
-| Prepare | Load, fix orientation, measure blur and noise, detect the document type |
-| Upscale | Real-ESRGAN x4 (OpenCV fallback) |
-| Faces | GFPGAN, blended with the original (ID photo mode only) |
-| Enhance | Denoise, levels, CLAHE contrast, unsharp |
-| Verify | Structure, layout, colour, face and text checks, plus the readability gate |
-| Report | JSON, HTML report, ZIP and CSV for batches |
+> [!IMPORTANT]
+> Restoration cannot bring back detail that is not in the file. If a model makes a very blurry image look readable, it is **guessing** the text and faces. For HR records, that is a risk, not a feature.
 
-## Be honest about limits
+## ✨ Features
 
-- Restoration cannot bring back detail that is not in the file. A heavily out-of-focus or heavily compressed image will not become readable, and a model that appears to make it readable is guessing the text and faces.
-- GFPGAN generates facial detail. Keep the identity blend below 100% and review ID photos by eye.
+| | Feature | Details |
+|---|---|---|
+| 🔍 | **Upscaling** | Real-ESRGAN x4, with an OpenCV Lanczos + unsharp fallback |
+| 🙂 | **Face restoration** | GFPGAN v1.4, blended with the original face using an identity slider |
+| 🎛️ | **Enhancement** | Denoise, levels, CLAHE contrast and unsharp, all adjustable |
+| ✅ | **Preservation checks** | Structure, layout, colour, face and text (Tesseract OCR) vs. the original |
+| 🚦 | **Readability gate** | Measures the *original's* sharpness and returns `ok`, `review` or `recapture` |
+| 🤖 | **AI advisor** | Groq model explains the result to HR in plain language. It only sees measurements, never the image |
+| 📦 | **Batch mode** | Up to 20 images, with a restored ZIP and a summary CSV |
+| 📄 | **Reports** | Per-image JSON and a downloadable HTML report |
+| 🌐 | **Public demo link** | Optional ngrok tunnel |
+
+## 🔬 How it works
+
+```mermaid
+flowchart LR
+    A["📤 Upload"] --> B["Prepare<br/>orientation, blur, noise"]
+    B --> C["Upscale<br/>Real-ESRGAN"]
+    C --> D["Faces<br/>GFPGAN (ID photo only)"]
+    D --> E["Enhance<br/>denoise, CLAHE, unsharp"]
+    E --> F["Verify<br/>structure, layout, colour, face, text"]
+    F --> G{"Source readability"}
+    G -->|ok| H["✅ Report"]
+    G -->|review| I["⚠️ Report: check every field by eye"]
+    G -->|recapture| J["🛑 Report: re-scan the original"]
+```
+
+<details>
+<summary><b>🚦 What the readability gate decides</b></summary>
+
+<br>
+
+| Status | Meaning | What the app shows |
+|---|---|---|
+| `ok` | Source is sharp enough to restore reliably | Normal result |
+| `review` | Source is soft | Amber warning: check every field by eye |
+| `recapture` | Source is too blurry to recover | Red warning: re-scan or re-photograph the original. Overall score is capped and the AI advisor's verdict is forced to `recapture_needed` |
+
+Example output for a very blurry source:
+
+```json
+{
+  "status": "recapture",
+  "source_sharpness": 0,
+  "message": "The source image is too blurry to recover reliably. Re-scan or re-photograph the original..."
+}
+```
+
+</details>
+
+<details>
+<summary><b>⚠️ Known limits (please read)</b></summary>
+
+<br>
+
+- A heavily out-of-focus or heavily compressed image will not become readable.
+- GFPGAN **generates** facial detail. Keep the identity blend below 100% and review ID photos by eye.
 - Quality and preservation scores are heuristics. Use the `readability` status and human review for decisions about records.
-- The images in the website's Gallery section are illustrations of the kind of damage the pipeline repairs. They are not real outputs.
+- The images in the website's Gallery section are **illustrations** of the damage the pipeline repairs, not real outputs.
 
-## Tech stack
+</details>
 
-- **Backend:** Python, FastAPI, Uvicorn, OpenCV, PyTorch, Real-ESRGAN, GFPGAN, Tesseract (pytesseract)
-- **Frontend:** Vite, vanilla JavaScript
-- **AI advisor:** Groq API
-- **Public URL (optional):** pyngrok
+## 🧰 Tech stack
 
-## Getting started
+| Layer | Tools |
+|---|---|
+| Backend | Python, FastAPI, Uvicorn, OpenCV, PyTorch, Real-ESRGAN, GFPGAN, pytesseract |
+| Frontend | Vite, vanilla JavaScript |
+| AI advisor | Groq API |
+| Public URL | pyngrok (optional) |
 
-### Prerequisites
+## 🚀 Quick start
 
-- Python 3.12 and Node.js 18+
-- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) installed and on your PATH (for the text check)
-- A [Groq API key](https://console.groq.com) for the AI advisor (optional)
-- An NVIDIA GPU with CUDA PyTorch is optional but much faster
+**You need:** Python 3.12, Node.js 18+, [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) on your PATH, and (optionally) a [Groq API key](https://console.groq.com).
 
-### 1. Clone
+### 1️⃣ Clone
 
 ```bash
 git clone https://github.com/JaineshBharti5/idrestore-ai.git
 cd idrestore-ai
 ```
 
-### 2. Backend
+### 2️⃣ Backend
+
+<details open>
+<summary><b>🪟 Windows</b></summary>
+
+```powershell
+cd backend
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+pip install -r requirements-ai.txt
+```
+
+</details>
+
+<details>
+<summary><b>🍎 macOS / 🐧 Linux</b></summary>
 
 ```bash
 cd backend
-python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS / Linux
-
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
-pip install -r requirements-ai.txt   # deep-learning models
+pip install -r requirements-ai.txt
 ```
 
-Create `backend/.env` from the example and add your keys:
+</details>
 
-```
+Create `backend/.env` (copy `.env.example`) and add your keys:
+
+```env
 GROQ_API_KEY=your_groq_key
 NGROK_AUTHTOKEN=your_ngrok_token   # only needed for run_public.py
 ```
 
-Never commit `.env`. It is already in `.gitignore`.
+> [!WARNING]
+> Never commit `.env`. It is already listed in `.gitignore`.
 
-### 3. Model weights
+### 3️⃣ Model weights
 
-The weights are too large for GitHub, so download them into `backend/models/`:
+The weights are too big for GitHub, so download them into `backend/models/`:
 
 ```bash
 cd backend/models
@@ -99,18 +159,36 @@ curl -L -o RealESRGAN_x4plus.pth https://github.com/xinntao/Real-ESRGAN/releases
 curl -L -o GFPGANv1.4.pth https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth
 ```
 
-Without the weights the app still runs with the OpenCV fallback.
+No weights? The app still runs, with the OpenCV fallback.
 
-### 4. Run the backend
+<details>
+<summary><b>⚡ Make it faster with an NVIDIA GPU</b></summary>
+
+<br>
+
+On one test machine a ~500 x 1100 px image took about **100 s on CPU** and about **8 s on an RTX 3050 laptop GPU**.
+
+1. Pick your CUDA build on [pytorch.org/get-started/locally](https://pytorch.org/get-started/locally/) and run the command it gives.
+2. Check it worked:
+
+```bash
+python -c "import torch; print(torch.cuda.is_available())"
+```
+
+It should print `True`.
+
+</details>
+
+### 4️⃣ Run the backend
 
 ```bash
 cd backend
 uvicorn app.main:app --reload --port 8000
 ```
 
-Check that it is healthy at `http://127.0.0.1:8000/api/health`. It lists which engines (upscaler, face restorer, OCR, advisor) are active.
+Open `http://127.0.0.1:8000/api/health`. It shows which engines (upscaler, faces, OCR, advisor) are active.
 
-### 5. Run the frontend
+### 5️⃣ Run the frontend
 
 ```bash
 cd frontend
@@ -118,18 +196,21 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+Open **http://localhost:5173** 🎉
 
-### Optional: share a public URL
+<details>
+<summary><b>🌍 Share a public demo link (ngrok)</b></summary>
 
 ```bash
 cd frontend && npm run build
 cd ../backend && python run_public.py
 ```
 
-## Using the API
+</details>
 
-Interactive docs are at `http://127.0.0.1:8000/docs`.
+## 🔌 API
+
+Interactive docs: `http://127.0.0.1:8000/docs`
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/restore \
@@ -143,23 +224,12 @@ curl -X POST http://127.0.0.1:8000/api/restore \
 | `mode` | `auto`, `id_photo`, `document` |
 | `scale` | `0` (auto), `1`, `2`, `4` |
 
-Limits: 15 MB per file, 20 files per batch. Supported formats: JPG, PNG, WEBP, BMP, TIFF.
+Limits: 15 MB per file, 20 files per batch. Formats: JPG, PNG, WEBP, BMP, TIFF.
 
-Each result includes a `readability` block:
+## 📁 Project structure
 
-```json
-{
-  "status": "recapture",
-  "source_sharpness": 0,
-  "message": "The source image is too blurry to recover reliably. Re-scan or re-photograph the original..."
-}
-```
-
-## Speed
-
-Restoring a ~500 x 1100 px image took about 100 s on CPU and about 8 s on an RTX 3050 laptop GPU (after the models loaded). Install a CUDA build of PyTorch from [pytorch.org](https://pytorch.org/get-started/locally/) to use your GPU.
-
-## Project structure
+<details>
+<summary><b>Click to expand</b></summary>
 
 ```
 idrestore-ai/
@@ -171,7 +241,7 @@ idrestore-ai/
 │   │   ├── upscale.py       # Real-ESRGAN with OpenCV fallback
 │   │   ├── face.py          # GFPGAN face restoration
 │   │   ├── enhance.py       # denoise, levels, CLAHE, unsharp
-│   │   ├── evaluate.py      # preservation checks and readability gate
+│   │   ├── evaluate.py      # preservation checks + readability gate
 │   │   ├── advisor.py       # Groq AI advisor
 │   │   ├── report.py        # HTML / JSON reports
 │   │   └── config.py
@@ -179,19 +249,76 @@ idrestore-ai/
 │   ├── run_batch.py
 │   └── run_public.py
 ├── frontend/                # Vite app
-├── docs/
-│   └── PROJECT_DOCUMENT.md
+├── docs/PROJECT_DOCUMENT.md
 └── README.md
 ```
 
-## Roadmap
+</details>
 
-- Verify OCR-read fields (employee ID, registration number) against existing HRMS records and flag mismatches.
-- Explore generative restoration for heavily degraded images, always labelled as AI-reconstructed and never stored as the record without verification.
-- Replace the heuristic quality score with a calibrated one.
+## ❓ FAQ / Troubleshooting
 
-## Contributors
+<details>
+<summary><b>The backend root page (<code>/</code>) shows <code>{"detail":"Not Found"}</code></b></summary>
 
-- [JaineshBharti5](https://github.com/JaineshBharti5)
-- [SiramGanesh](https://github.com/SiramGanesh)
-- [saachiahuja02](https://github.com/saachiahuja02)
+That is normal. The website is served by the frontend at `localhost:5173`, and engine status is at `/api/health`.
+
+</details>
+
+<details>
+<summary><b><code>localhost:5173</code> says "refused to connect"</b></summary>
+
+The frontend is not running. Open a terminal in `frontend/` and run `npm run dev`.
+
+</details>
+
+<details>
+<summary><b>The AI advisor fails with <code>NotFoundError</code> / <code>model_not_found</code></b></summary>
+
+Groq retires models from time to time. Open `backend/app/config.py`, change `GROQ_MODEL` to a model that is currently listed in the [Groq docs](https://console.groq.com/docs/models), save, and the backend reloads itself.
+
+</details>
+
+<details>
+<summary><b><code>/api/health</code> shows <code>"active": false</code> for upscale or face</b></summary>
+
+The weights are missing from `backend/models/`. Follow step 3 above, then restart the backend, because models are loaded at startup.
+
+</details>
+
+<details>
+<summary><b><code>torch.cuda.is_available()</code> prints <code>False</code></b></summary>
+
+You have the CPU build of PyTorch. Uninstall it (`pip uninstall -y torch torchvision`) and install the CUDA build from [pytorch.org](https://pytorch.org/get-started/locally/).
+
+</details>
+
+<details>
+<summary><b>My very blurry image still looks blurry after restoring</b></summary>
+
+That is expected. The app flags it with a "Re-scan needed" warning, because the detail is not in the file. Re-scan or re-photograph the original in good light.
+
+</details>
+
+## 🗺️ Roadmap
+
+- [x] Real-ESRGAN upscaling with OpenCV fallback
+- [x] GFPGAN face restoration with identity blend
+- [x] Preservation checks (structure, layout, colour, face, text)
+- [x] Source readability gate (`ok` / `review` / `recapture`)
+- [x] AI advisor that cannot override the readability gate
+- [x] Batch mode with ZIP and CSV
+- [ ] Verify OCR-read fields (employee ID, registration number) against HRMS records and flag mismatches
+- [ ] Generative restoration for heavy damage, labelled as AI-reconstructed and never stored as the record without verification
+- [ ] Calibrated quality score instead of heuristics
+- [ ] Hosted deployment
+
+## 🤝 Contributors
+
+<a href="https://github.com/JaineshBharti5">JaineshBharti5</a> ·
+<a href="https://github.com/SiramGanesh">SiramGanesh</a> ·
+<a href="https://github.com/saachiahuja02">saachiahuja02</a>
+
+<!--
+Screenshots: add a docs/screenshots folder, then uncomment:
+![Studio](docs/screenshots/studio.png)
+-->
