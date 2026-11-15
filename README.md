@@ -1,96 +1,197 @@
-# IDRestore AI: Employee Document Restorer
+# IDRestore AI
 
-Restores degraded employee ID photos and scanned HR documents for HRMS migration, then checks that faces, text and layout stayed faithful to the original.
+Restore faded, noisy and low-resolution employee ID photos and scanned HR documents before they go into an HRMS, and know when an image is too damaged to trust.
 
-Stack: FastAPI, OpenCV, Real-ESRGAN, GFPGAN, Tesseract (optional), Vite vanilla JS.
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-frontend-646CFF?logo=vite&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-CUDA%20optional-EE4C2C?logo=pytorch&logoColor=white)
 
-## Run it (Windows, VS Code)
+## Why this exists
 
-Full project document for submission: `docs/PROJECT_DOCUMENT.md`.
+Legacy HR records are full of old ID card photos and scans. Before digitising them into an HRMS, someone has to clean them up, and then someone has to decide whether the result can be trusted as the record. IDRestore AI does both:
 
-Backend, from the `backend` folder:
+1. It restores the image with a classical + deep-learning pipeline.
+2. It measures how much the output still matches the original.
+3. It checks whether the **source** was sharp enough to restore at all, and says so plainly when it was not.
+
+## Features
+
+- **Upscaling** with Real-ESRGAN x4, with an OpenCV Lanczos + unsharp fallback when the model is not installed.
+- **Face restoration** with GFPGAN v1.4, blended with the original face through an adjustable identity slider.
+- **Enhancement**: denoise, levels, CLAHE contrast and unsharp masking, each adjustable.
+- **Preservation checks**: structure, layout, colour, face and text (OCR with Tesseract) compared against the original.
+- **Source readability gate**: measures the sharpness of the original and returns `ok`, `review` or `recapture`. A too-blurry source gets a clear "re-scan needed" warning instead of a high score.
+- **AI advisor** (Groq): reads the measurements and explains the result to HR in plain language. It never sees the image, and its verdict can never override the readability gate.
+- **Batch mode**: up to 20 images, with a restored ZIP and a summary CSV.
+- **Reports**: per-image JSON and a downloadable HTML report.
+- **Public sharing**: optional ngrok tunnel for demos.
+
+## How it works
+
+| Step | What happens |
+|---|---|
+| Prepare | Load, fix orientation, measure blur and noise, detect the document type |
+| Upscale | Real-ESRGAN x4 (OpenCV fallback) |
+| Faces | GFPGAN, blended with the original (ID photo mode only) |
+| Enhance | Denoise, levels, CLAHE contrast, unsharp |
+| Verify | Structure, layout, colour, face and text checks, plus the readability gate |
+| Report | JSON, HTML report, ZIP and CSV for batches |
+
+## Be honest about limits
+
+- Restoration cannot bring back detail that is not in the file. A heavily out-of-focus or heavily compressed image will not become readable, and a model that appears to make it readable is guessing the text and faces.
+- GFPGAN generates facial detail. Keep the identity blend below 100% and review ID photos by eye.
+- Quality and preservation scores are heuristics. Use the `readability` status and human review for decisions about records.
+- The images in the website's Gallery section are illustrations of the kind of damage the pipeline repairs. They are not real outputs.
+
+## Tech stack
+
+- **Backend:** Python, FastAPI, Uvicorn, OpenCV, PyTorch, Real-ESRGAN, GFPGAN, Tesseract (pytesseract)
+- **Frontend:** Vite, vanilla JavaScript
+- **AI advisor:** Groq API
+- **Public URL (optional):** pyngrok
+
+## Getting started
+
+### Prerequisites
+
+- Python 3.12 and Node.js 18+
+- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) installed and on your PATH (for the text check)
+- A [Groq API key](https://console.groq.com) for the AI advisor (optional)
+- An NVIDIA GPU with CUDA PyTorch is optional but much faster
+
+### 1. Clone
+
+```bash
+git clone https://github.com/JaineshBharti5/idrestore-ai.git
+cd idrestore-ai
+```
+
+### 2. Backend
+
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # macOS / Linux
+
+pip install -r requirements.txt
+pip install -r requirements-ai.txt   # deep-learning models
+```
+
+Create `backend/.env` from the example and add your keys:
 
 ```
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
+GROQ_API_KEY=your_groq_key
+NGROK_AUTHTOKEN=your_ngrok_token   # only needed for run_public.py
+```
+
+Never commit `.env`. It is already in `.gitignore`.
+
+### 3. Model weights
+
+The weights are too large for GitHub, so download them into `backend/models/`:
+
+```bash
+cd backend/models
+curl -L -o RealESRGAN_x4plus.pth https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth
+curl -L -o GFPGANv1.4.pth https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth
+```
+
+Without the weights the app still runs with the OpenCV fallback.
+
+### 4. Run the backend
+
+```bash
+cd backend
 uvicorn app.main:app --reload --port 8000
 ```
 
-Frontend, from the `frontend` folder:
+Check that it is healthy at `http://127.0.0.1:8000/api/health`. It lists which engines (upscaler, face restorer, OCR, advisor) are active.
 
-```
+### 5. Run the frontend
+
+```bash
+cd frontend
 npm install
 npm run dev
 ```
 
-Open http://localhost:5173.
+Open `http://localhost:5173`.
 
-## AI advisor (Groq) and Ngrok
+### Optional: share a public URL
 
-Copy `backend/.env.example` to `backend/.env` and fill in `GROQ_API_KEY` (from console.groq.com) and `NGROK_AUTHTOKEN` (from the Ngrok dashboard). Never commit `.env`. Restart uvicorn after editing it. The Studio then shows an AI advisor card for every result.
-
-Public URL: run `npm run build` in `frontend`, then `python run_public.py` in `backend`. To serve everything from the backend instead, run `npm run build` once and open http://127.0.0.1:8000.
-
-## Turn on the AI models (optional but recommended)
-
-Without models the app still works using OpenCV (Lanczos upscale, bilateral face clean-up). The studio shows which engine is active.
-
-1. Use Python 3.10 or 3.11 for this step. PyTorch wheels usually are not available for the newest Python versions.
-2. `pip install -r requirements-ai.txt`
-3. If `basicsr` fails with `functional_tensor`, open `basicsr/data/degradations.py` in your venv and change `from torchvision.transforms.functional_tensor import rgb_to_grayscale` to `from torchvision.transforms.functional import rgb_to_grayscale`.
-4. Download these weights into `backend/models`:
-   - RealESRGAN_x4plus.pth from the Real-ESRGAN releases page
-   - GFPGANv1.4.pth from the GFPGAN releases page
-5. Restart uvicorn. GFPGAN also downloads its face detector the first time it runs, so the first request needs internet.
-
-## OCR text check (optional)
-
-Install Tesseract for Windows, add it to PATH, then `pip install pytesseract`. For Hindi text set `IDRESTORE_OCR_LANG=eng+hin` before starting uvicorn.
-
-## Test data and batch command
-
-```
-python make_samples.py --input path\to\clean_photos --out samples
-python run_batch.py samples\degraded --out restored
+```bash
+cd frontend && npm run build
+cd ../backend && python run_public.py
 ```
 
-`make_samples.py` degrades images (downscale, blur, noise, low contrast, heavy JPEG) and adds synthetic HR pages, so you get clean/degraded pairs. `run_batch.py` restores a folder and writes `summary.csv`.
+## Using the API
 
-## API
+Interactive docs are at `http://127.0.0.1:8000/docs`.
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | /api/health | Engine status (Real-ESRGAN, GFPGAN, OCR) and limits |
-| POST | /api/restore | One file. Form fields: file, mode, scale, denoise, sharpen, contrast, fidelity |
-| POST | /api/batch | Up to 20 files. Returns per-file results, errors, ZIP and CSV links |
-| GET | /api/jobs/{id} | Stored result JSON |
-| GET | /api/jobs/{id}/report | Downloadable HTML quality report |
+```bash
+curl -X POST http://127.0.0.1:8000/api/restore \
+  -F "file=@old_id.jpg" \
+  -F "mode=auto" \
+  -F "scale=0"
+```
 
-Interactive docs at `/docs`.
+| Field | Values |
+|---|---|
+| `mode` | `auto`, `id_photo`, `document` |
+| `scale` | `0` (auto), `1`, `2`, `4` |
 
-## How it maps to the project objectives
+Limits: 15 MB per file, 20 files per batch. Supported formats: JPG, PNG, WEBP, BMP, TIFF.
 
-| Objective | Where |
-| --- | --- |
-| Employee document data preparation | `preprocess.py`, `make_samples.py` |
-| Employee image upscaling (Real-ESRGAN) | `upscale.py` |
-| ID photo facial restoration (GFPGAN) | `face.py` |
-| Document quality enhancement (OpenCV) | `enhance.py` |
-| Record preservation evaluation | `evaluate.py` |
-| Automated pipeline and testing | `pipeline.py`, `main.py` batch endpoint, `run_batch.py` |
-| Restoration quality report | `report.py`, studio scores |
+Each result includes a `readability` block:
 
-## Scores
+```json
+{
+  "status": "recapture",
+  "source_sharpness": 0,
+  "message": "The source image is too blurry to recover reliably. Re-scan or re-photograph the original..."
+}
+```
 
-Both scores are heuristics, so describe them that way in your report.
+## Speed
 
-- Restoration quality (0 to 100): sharpness gain (45%), noise reduction (25%), contrast (30%), measured at the same size against a bicubic upscale of the original.
-- Preservation (0 to 100): structure SSIM on low-passed images, edge layout match, colour drift in Lab a/b, face SSIM for ID photos, OCR text similarity for documents when Tesseract is installed.
-- Verdict: Faithful at 85 or more, Review at 70 or more, otherwise Altered.
+Restoring a ~500 x 1100 px image took about 100 s on CPU and about 8 s on an RTX 3050 laptop GPU (after the models loaded). Install a CUDA build of PyTorch from [pytorch.org](https://pytorch.org/get-started/locally/) to use your GPU.
 
-## Known limits
+## Project structure
 
-- Face detection for ID type detection uses OpenCV Haar cascades, so profile or tiny faces can be missed. Use the Document type selector to override.
-- Generative restoration can invent detail. Keep the preservation report with every restored record and review anything marked Review or Altered.
-- CPU Real-ESRGAN is slow on large images. Inputs are capped at 2000 px and outputs at 3200 px.
+```
+idrestore-ai/
+├── backend/
+│   ├── app/
+│   │   ├── main.py          # FastAPI routes
+│   │   ├── pipeline.py      # orchestrates the restore steps
+│   │   ├── preprocess.py    # loading, diagnosis, face detection
+│   │   ├── upscale.py       # Real-ESRGAN with OpenCV fallback
+│   │   ├── face.py          # GFPGAN face restoration
+│   │   ├── enhance.py       # denoise, levels, CLAHE, unsharp
+│   │   ├── evaluate.py      # preservation checks and readability gate
+│   │   ├── advisor.py       # Groq AI advisor
+│   │   ├── report.py        # HTML / JSON reports
+│   │   └── config.py
+│   ├── models/              # downloaded weights (not in git)
+│   ├── run_batch.py
+│   └── run_public.py
+├── frontend/                # Vite app
+├── docs/
+│   └── PROJECT_DOCUMENT.md
+└── README.md
+```
+
+## Roadmap
+
+- Verify OCR-read fields (employee ID, registration number) against existing HRMS records and flag mismatches.
+- Explore generative restoration for heavily degraded images, always labelled as AI-reconstructed and never stored as the record without verification.
+- Replace the heuristic quality score with a calibrated one.
+
+## Contributors
+
+- [JaineshBharti5](https://github.com/JaineshBharti5)
+- [SiramGanesh](https://github.com/SiramGanesh)
+- [saachiahuja02](https://github.com/saachiahuja02)
