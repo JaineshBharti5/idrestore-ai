@@ -313,6 +313,7 @@ That is expected. The app flags it with a "Re-scan needed" warning, because the 
 <a href="https://github.com/JaineshBharti5">JaineshBharti5</a> ·
 <a href="https://github.com/SiramGanesh">SiramGanesh</a> ·
 <a href="https://github.com/saachiahuja02">saachiahuja02</a>
+<a href="https://github.com/DevDobariya13">DevDobariya13</a>
 
 <!--
 Screenshots: add a docs/screenshots folder, then uncomment:
